@@ -95,6 +95,67 @@ end
 class: center, middle
 # to 'should' or not to 'should'?
 ---
+class: middle
+
+## Subject
+```ruby
+# DRY up the test by specifying your subject
+context '#foo_bar' do
+  subject { widget.foo_bar }
+
+  it 'should do something' do
+    expect(subject).to eq('foo')
+  end
+end
+```
+---
+class: middle
+### The subject MUST be inside a context
+
+```ruby
+# This won't work
+describe 'Tax Calculator' do
+  subject { calculator.state }
+  it 'should be a state abbreviation' do
+    expect(subject).to eq('CA')
+  end
+
+  subject { calculator.percentage }
+  it 'should return a percentage' do
+    expect(subject).to eq('foo')
+  end
+end
+
+# This will
+describe 'Tax Calculator' do
+  describe '#state' do
+    subject { calculator.state }
+    it 'should be a state abbreviation' do
+      expect(subject).to eq('CA')
+    end
+  end
+
+  describe '#percentage' do
+    subject { calculator.percentage }
+    it 'should return a percentage' do
+      expect(subject).to eq('foo')
+    end
+  end
+end
+```
+
+---
+class: middle
+
+## Described Class
+
+```ruby
+# looks back through describes blocks to find a class
+describe YourClassName do
+  let(:thing) { described_class.new }
+end
+```
+---
 class: center, middle
 # don't use instance variables
 ---
