@@ -291,6 +291,54 @@ Tax amount
 ```
 ---
 class: middle, center
+## Advanced
+---
+class: middle
+### Shared Example Groups
+
+```ruby
+  shared_examples 'valid_calculator' do
+    it 'should have a tax percentage' do
+      expect(calculator.tax_percentage).to be_present
+    end
+
+    it { should be_valid }
+  end
+
+  context 'CA Tax' do
+    let(:state) { 'CA' }
+
+    it_should_behave_like 'valid_calculator'
+
+    it 'calculates the right local tax' do
+      expect(calculator.amount).to eq(123.45)
+    end
+  end
+```
+---
+class: middle
+### Custom Matchers
+
+```ruby
+# lame:
+expect(lunch.kind).to eq('taco')
+
+# better:
+expect(lunch).to be_a_taco
+
+RSpec::Matchers.define :be_a_taco do |_expected|
+  match do |actual|
+    taco.kind == 'taco'
+  end
+
+  failure_message do |actual|
+    "that was not a taco, it was a #{actual.kind}"
+  end
+end
+```
+
+---
+class: middle, center
 # 3. Lifecycle
 ---
 class: middle
