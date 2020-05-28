@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>RSpec Best Practices</title>
+    <meta charset="utf-8">
+    <style>
+      @import url(https://fonts.googleapis.com/css?family=Yanone+Kaffeesatz);
+      @import url(https://fonts.googleapis.com/css?family=Droid+Serif:400,700,400italic);
+      @import url(https://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700,400italic);
+      body { font-family: 'Droid Serif'; }
+      h1, h2, h3 {
+        font-family: 'Yanone Kaffeesatz';
+        font-weight: normal;
+      }
+      .remark-code, .remark-inline-code { font-family: 'Ubuntu Mono'; }
+    </style>
+  </head>
+  <body>
+    <textarea id="source">
+
+class: center, middle
+# RSpec Best Practices
+---
+class: center, middle
+# RSpec == Specs == Tests
+---
+class: center, middle
+# Tests == Confidence
+---
+class: center, middle
+# Tests != bugs.none?
+---
+class: middle
+* Structure
+* Naming
+* Lifecycle
+* FactoryBot
+* Mocks/Stubs/VCR
+---
+class: center, middle
+# 1. Structure
+---
+class: middle
+
+```ruby
+describe 'placing an order' do
+end
+
+```
+---
+class: center, middle
+# describe == context
+---
+class: middle
+
+```ruby
+describe 'placing an order' do
+  context "when there's enough inventory remaining" do
+    it 'should accept the order'
+    it 'should say Thank You'
+  end
+
+  context 'when the item is sold out' do
+    it 'should reject the order'
+    it 'should send an email'
+    it 'should return 200'
+  end
+end
+
+```
+---
+class: middle
+```ruby
+describe 'placing an order' do
+  let(:product) { FactoryBot.build(:product, qty: inventory_remaining) }
+
+  context "when there's enough inventory remaining" do
+    let(:inventory_remaining) { 200 }
+
+    it 'should accept the order'
+    it 'should say Thank You'
+  end
+
+  context 'when the item is sold out' do
+    let(:inventory_remaining) { 0 }
+
+    it 'should reject the order'
+    it 'should send an email'
+    it 'should return 200'
+  end
+end
+
+```
+---
+class: center, middle
+# to 'should' or not to 'should'?
+---
+class: center, middle
+# don't use instance variables
+---
+class: center, middle
+# don't use local variables
+---
+class: center, middle
+# use `let` and `let!`
+### `let` is lazy
+### `let!` is not
+---
+class: middle
+```ruby
+let(:foo) { 'bar' }
+```
+is the roughly the same as:
+```ruby
+def foo
+  @foo ||= 'bar'
+end
+```
+---
+class: middle
+```ruby
+let!(:foo) { 'bar' }
+```
+is the roughly the same as:
+```ruby
+send def foo
+  @foo ||= 'bar'
+end
+```
+---
+class: middle
+Cognitive load:
+```ruby
+it 'should do something' do
+  some_thing = FactoryBot.create(:some_object, foo: :bar)
+  expect(some_thing.doing_stuff).to eq('foo_bar')
+end
+```
+vs.
+```ruby
+it 'should do something' do
+  expect(some_thing.doing_stuff).to eq('foo_bar')
+end
+```
+---
+class: middle
+Override:
+
+```ruby
+describe 'lamp' do
+  let(:lamp) { FactoryBot.create(:lamp, bulb_status: status) }
+
+  context 'when working' do
+    let(:bulb_status) { :new }
+    it '...'
+    it '...'
+  end
+
+  context 'when working' do
+    let(:bulb_status) { :dead }
+    it '...'
+    it '...'
+  end
+end
+```
+---
+class: middle, center
+# 2. Naming
+---
+class: middle
+## Concatenate your describes, contexts, its:
+### Good:
+```ruby
+describe 'cooking a steak' do
+  context 'well done' do
+    it 'tastes terrible'
+  end
+  context 'medium rare' do
+    it 'is juicy'
+    it 'springs back to the touch'
+  end
+end
+```
+### Bad:
+```ruby
+describe 'steak cooking' do
+  context 'well' do
+    it 'bad'
+  end
+end
+```
+---
+class: middle
+```plain
+$ rspec path/too/file.rb:999 --format documentation
+
+cooking a steak
+  well done
+    tastes terrible
+  medium rare
+    is juicy
+    springs back to the touch
+```
+---
+class: middle
+### This doesn't do Future You any favors:
+
+```ruby
+describe 'tax amount' do
+  it { should eq 13.40 }
+end
+```
+```
+Tax amount
+  should eq 13.40
+```
+
+### Instead:
+
+```ruby
+describe 'tax amount' do
+  it 'looks up the tax rate via API' do
+    expect(subject).to eq(13.40)
+  end
+end
+```
+```
+Tax amount
+  looks up the rate via API
+```
+---
+class: middle, center
+# 3. Lifecycle
+---
+class: middle
+## Hooks:
+```ruby
+before(:suite)
+before(:all)
+before(:each)
+
+around
+
+after
+```
+---
+class: middle, center
+## Database Cleaner
+
+Let's look at `spec/spec_helper.rb`
+---
+class: middle, center
+## Test metadata
+
+Let's look at `spec/support/stub_metadata.rb`
+---
+class: middle, center
+# 4. FactoryBot
+---
+class: middle
+# Factory Definition Rules
+
+1. Commit a base factory for every new model
+1. Base factory must be idempotent
+1. Never, ever, hard code IDs
+1. Use sequences for unique values
+1. Use traits where appropriate; Avoid separate factories
+1. Prefer FFaker/Faker instead of hard coded values
+---
+class: middle
+```ruby
+factory :bread do
+  brand { FFaker::Product.brand }
+  name { FFaker::Product.product_name }
+  kind { 'baguette' }
+  yeast { true }
+  proof_time { 1.hour }
+
+  trait :sourdough do
+    kind { 'sourdough' }
+    yeast { false }
+    proof_time { 3.hours }
+  end
+end
+```
+---
+class: middle
+
+# Factory Usage Rules
+
+1. Use `FactoryBot.build` when persistence is not needed
+2. Define values required for assertions inside your test
+3. Use relationship objects to keep tests DRY
+4. Make use of `.create_list`, `.attributes_for`, and more
+---
+class: middle, center
+# Mocks/Stubs/VCR
+---
+class: middle
+
+# Types
+
+1. Stub: Replaces method with specified response
+1. Mock: Expects specific methods to be called
+1. Null Object: Returns itself for every method
+1. Spy: Records what ever is called
+
+---
+class: middle
+
+# Why stub/mock/spy?
+
+1. Simplify: Isolate to the thing relevant
+2. Eliminate HTTP calls (See also, VCR)
+3. Test the non-happy path
+4. Write less brittle tests
+---
+class: middle
+
+# Doubles
+
+### Generic:
+
+```ruby
+let(:bike) { double }
+```
+
+### Better:
+
+```ruby
+let(:bike) { double(Bike) }
+```
+
+### Stubs:
+
+```ruby
+# Good:
+let(:bike) { double(Bike, kind: 'fixed_gear') }
+
+# Avoid:
+let(:bike) { double(Bike) }
+before { allow(bike).to receive(:kind).and_return('fixed_gear') }
+```
+---
+class: middle
+# Mocks
+
+```ruby
+# When we only care that the method is reached
+expect(pizza).to receive(:slice!)
+
+# When we care about the response
+expect(taco).to receive(:toppings).and_return([:cilantro,:onions])
+
+# When we also care about the inputs
+expect(salad).to receive(:dress).with(:caesar)
+```
+---
+class: middle
+# Advanced Mocks
+
+```ruby
+# We care about the response, but want the original method to handle it:
+expect(TaxCalculator).to receive(:percent_for_state).
+  with('CA').
+  and_call_original
+
+expect(TaxCalculator.percent_for_state('CA')).to eq('0.11375')
+
+# use a block for mocking with some complexity:
+expect(calculator).to receive(:tax_amount) do |total|
+  total * 0.11
+end
+
+# and_wrap_original
+expect(API).to receive(:get).and_wrap_original do |m, *args|
+  response = m.call(*args)
+  response.code = 404
+end
+
+# yielding
+allow(foo).to receive(:bar).and_yield(2, 3)
+```
+---
+class: middle
+# VCR
+
+### VCR records HTTP requests and responses
+1. Does all the hard mocking stuff for you.
+1. Proves to yourself and your team that the API call functions.
+1. Prevents calling any live APIs in tests (egregious!)
+
+---
+class: middle
+
+## Use Metadata
+```ruby
+# bad
+it 'should return a 200' do
+  VCR.use_cassette('successful') do
+    expect(response.code).to eq(200)
+  end
+end
+
+# good
+it 'should return a 200', vcr: { cassette_name: 'successful' } do
+  expect(response.code).to eq(200)
+end
+```
+---
+class: middle
+
+## Request Matching
+
+### Default matching is on URI and HTTP method
+### You *could* use separate cassettes
+### Better to use a custom matcher:
+```ruby
+VCR.configure do |c|
+  c.register_request_matcher :address_to_validate do |request_1, request_2|
+    doc1, doc2 = Nokogiri::XML(request_1.body), Nokogiri::XML(request_2.body)
+    doc1.remove_namespaces!; doc2.remove_namespaces!
+    doc1.xpath('//AddressesToValidate').to_s == doc2.xpath('//AddressesToValidate').to_s
+  end
+end
+```
+---
+class: middle
+
+# Resources
+* FactoryBot: [GETTING_STARTED.md](https://github.com/thoughtbot/factory_bot/blob/master/GETTING_STARTED.md)
+* BetterSpecs: [betterspecs.org](http://betterspecs.org)
+* Effective Testing with RSpec 3: [pragprog.org](https://pragprog.com/book/rspec3/effective-testing-with-rspec-3)
+* Relish docs: [relishapp.com](https://relishapp.com/)
+
+    </textarea>
+    <script src="https://remarkjs.com/downloads/remark-latest.min.js">
+    </script>
+    <script>
+      var slideshow = remark.create();
+    </script>
+  </body>
+</html>
